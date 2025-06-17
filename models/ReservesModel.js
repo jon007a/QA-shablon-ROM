@@ -10,10 +10,11 @@ export const totalRequests = new Counter('total_requests');
 export const uniqueProjects = new Counter('unique_projects');
 
 export class ReservesModel extends BaseModel {
-    constructor(environment) {
+    constructor(environment = 'development') {
         super(environment);
         this.endpoint = '/v1';
         this.metrics = [];
+        this.environment = environment; // Явно сохраняем environment
     }
 
     // Получение списка проектов
@@ -167,7 +168,7 @@ export class ReservesModel extends BaseModel {
             fields,
             tags: {
                 ...tags,
-                environment: this.environment
+                environment: this.environment || 'development'
             }
         });
     }

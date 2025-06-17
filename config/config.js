@@ -2,9 +2,9 @@ export const CONFIG = {
     // Настройки InfluxDB
     influxDB: {
         url: 'http://158.160.147.11:30086',
-        token: __ENV.INFLUXDB_TOKEN || 'TktS_DpjT9vs-1bRfEMnoBTplZhkE0nP96V86OGS2VNBan-8xXQWuemrDCm6VXUke2DXLq1-LnOY96I4ISF88Q==',
-        org: __ENV.INFLUXDB_ORG || 'myorg',
-        bucket: __ENV.INFLUXDB_BUCKET || 'five',
+        token: 'TktS_DpjT9vs-1bRfEMnoBTplZhkE0nP96V86OGS2VNBan-8xXQWuemrDCm6VXUke2DXLq1-LnOY96I4ISF88Q==',
+        org: '0fcac95626900400',
+        bucket: 'five',
     },
 
     // Общие настройки тестирования
@@ -37,4 +37,4 @@ export const CONFIG = {
         defaultOffset: 0,
         timeout: '300s',
     },
-}; 
+};
