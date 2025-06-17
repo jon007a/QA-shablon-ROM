@@ -27,22 +27,29 @@ export class ReservesModel extends BaseModel {
             }
         );
 
-        if (response.status === 200 && response.json()?.data) {
-            const projectNames = [...new Set(
-                response.json().data
-                    .map(p => p.projectName)
-                    .filter(name => name && name.trim() !== 'Синергия 4.2.1')
-            )];
+        let projectNames = [];
 
-            // Отправка метрик для уникальных проектов
-            projectNames.forEach(name => {
-                uniqueProjects.add(1, { project: name });
-            });
+        try {
+            if (response.status === 200) {
+                const data = response.json();
+                if (data && data.data) {
+                    projectNames = [...new Set(
+                        data.data
+                            .map(p => p.projectName)
+                            .filter(name => name && name.trim() !== 'Синергия 4.2.1')
+                    )];
 
-            return projectNames;
+                    // Отправка метрик для уникальных проектов
+                    projectNames.forEach(name => {
+                        uniqueProjects.add(1, { project: name });
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка при обработке ответа:', error.message);
         }
 
-        return [];
+        return projectNames;
     }
 
     // Получение данных по проекту
