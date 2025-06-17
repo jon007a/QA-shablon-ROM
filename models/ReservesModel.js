@@ -1,6 +1,7 @@
 import { BaseModel } from './BaseModel.js';
 import { Counter, Trend } from 'k6/metrics';
 import { CONFIG } from '../config/config.js';
+import http from 'k6/http';
 
 // Кастомные метрики
 export const totalResponseTime = new Trend('total_response_time');
@@ -18,29 +19,25 @@ export class ReservesModel extends BaseModel {
     }
 
     // Получение списка лимитов резервов
-    async getReservesLimits(limit = CONFIG.defaults.limit, offset = 0) {
-        const response = await this.get(
-            `${CONFIG.api.endpoints.reservesLimits}?limit=${limit}&offset=${offset}`,
+    getReservesLimits(limit = CONFIG.defaults.limit, offset = 0) {
+        return http.get(
+            `${CONFIG.api.baseUrl}${CONFIG.api.endpoints.reservesLimits}?limit=${limit}&offset=${offset}`,
             {
                 headers: this.headers,
                 timeout: '300s'
             }
         );
-
-        return response;
     }
 
     // Получение фактических резервов по имени проекта
-    async getReservesFact(projectName) {
-        const response = await this.get(
-            `${CONFIG.api.endpoints.reservesFact}?projectName=${encodeURIComponent(projectName)}`,
+    getReservesFact(projectName) {
+        return http.get(
+            `${CONFIG.api.baseUrl}${CONFIG.api.endpoints.reservesFact}?projectName=${encodeURIComponent(projectName)}`,
             {
                 headers: this.headers,
                 tags: { project: projectName }
             }
         );
-
-        return response;
     }
 
     // Обработка результатов запроса
@@ -75,7 +72,8 @@ export class ReservesModel extends BaseModel {
     // Извлечение имен проектов из ответа
     extractProjectNames(response) {
         try {
-            const projects = response.json().data
+            const data = JSON.parse(response.body);
+            const projects = data.data
                 .map(p => p.projectName)
                 .filter(name => name && name.trim() !== 'Синергия 4.2.1');
 

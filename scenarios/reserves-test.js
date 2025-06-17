@@ -16,10 +16,22 @@ export function setup() {
     const limitsResponse = reservesModel.getReservesLimits();
     
     // Проверяем ответ
-    check(limitsResponse, {
+    const checks = check(limitsResponse, {
         'List API status 200': (r) => r.status === 200,
-        'Valid list response': (r) => !!r.json()?.data
+        'Valid list response': (r) => {
+            try {
+                const data = JSON.parse(r.body);
+                return !!data?.data;
+            } catch (e) {
+                return false;
+            }
+        }
     });
+
+    if (!checks) {
+        console.error('Ошибка при получении списка лимитов');
+        return { projectNames: [] };
+    }
 
     // Обрабатываем ответ и сохраняем имена проектов
     globalProjectNames = reservesModel.extractProjectNames(limitsResponse);
@@ -36,24 +48,12 @@ export default function(data) {
         return;
     }
 
-    // Формируем массив промисов для параллельных запросов
-    const requests = projectNames.map(name => {
-        return new Promise((resolve) => {
-            const response = reservesModel.getReservesFact(name);
-            resolve({ response, projectName: name });
-        });
+    // Выполняем запросы для каждого проекта
+    projectNames.forEach(name => {
+        const response = reservesModel.getReservesFact(name);
+        reservesModel.processResponse(response, { project: name });
     });
 
-    // Выполняем все запросы параллельно
-    Promise.all(requests).then(responses => {
-        // Подсчёт общего количества запросов
-        totalRequests.add(projectNames.length, CONFIG.commonTags);
-
-        // Обработка результатов
-        responses.forEach(({ response, projectName }) => {
-            reservesModel.processResponse(response, { project: projectName });
-        });
-    }).catch(error => {
-        console.error('Ошибка выполнения запросов:', error.message);
-    });
+    // Подсчёт общего количества запросов
+    totalRequests.add(projectNames.length, CONFIG.commonTags);
 } 
