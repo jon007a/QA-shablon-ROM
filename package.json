@@ -1,0 +1,24 @@
+{
+    "name": "k6-load-testing-template",
+    "version": "1.0.0",
+    "description": "Шаблон для нагрузочного тестирования с использованием k6 и ROM",
+    "scripts": {
+        "test": "k6 run",
+        "test:user-flow": "k6 run scenarios/user-flow.js",
+        "test:influx": "k6 run -o influxdb=http://localhost:8086/k6 scenarios/user-flow.js"
+    },
+    "keywords": [
+        "k6",
+        "load-testing",
+        "performance",
+        "influxdb",
+        "grafana"
+    ],
+    "author": "",
+    "license": "MIT",
+    "devDependencies": {
+        "@babel/core": "^7.22.0",
+        "@babel/preset-env": "^7.22.0",
+        "@types/k6": "^0.45.0"
+    }
+} 
