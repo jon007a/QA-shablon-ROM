@@ -1,7 +1,8 @@
 import { BaseModel } from './BaseModel.js';
 import { Counter, Trend } from 'k6/metrics';
+import { influxdbConfig, sendMetricsToInfluxDB } from '../lib/influxdb.js';
 
-// Кастомные метрики
+// Кастомные метрики для k6
 export const totalResponseTime = new Trend('total_response_time');
 export const totalSuccessRequests = new Counter('total_success_requests');
 export const totalFailureRequests = new Counter('total_failure_requests');
@@ -11,93 +12,159 @@ export const uniqueProjects = new Counter('unique_projects');
 export class ReservesModel extends BaseModel {
     constructor(environment) {
         super(environment);
-        this.endpoints = {
-            limits: '/v1/reserves-limits',
-            fact: '/v1/reserves-fact'
-        };
+        this.endpoint = '/v1';
+        this.metrics = [];
     }
 
     // Получение списка проектов
-    async getProjects(limit = 500) {
+    async getProjectsList(limit = 500, offset = 0) {
+        const startTime = new Date();
         const response = await this.get(
-            `${this.endpoints.limits}?limit=${limit}&offset=0`,
+            `${this.endpoint}/reserves-limits?limit=${limit}&offset=${offset}`,
             {
                 headers: { 'accept': 'application/json' },
                 timeout: '300s'
             }
         );
+        const duration = new Date() - startTime;
 
-        let projectNames = [];
-
-        try {
-            if (response.status === 200) {
-                const responseBody = response.json();
-                console.log('Получен ответ от API:', JSON.stringify(responseBody, null, 2));
-
-                if (responseBody && responseBody.data && Array.isArray(responseBody.data)) {
-                    // Извлекаем уникальные projectName
-                    projectNames = [...new Set(
-                        responseBody.data
-                            .filter(item => item.projectName && 
-                                          item.projectName.trim() !== '' && 
-                                          item.projectName !== 'Синергия 4.2.1')
-                            .map(item => item.projectName)
+        // Обработка ответа
+        if (response.status === 200) {
+            try {
+                const data = this.parseResponse(response);
+                if (data?.data) {
+                    // Фильтрация проектов
+                    const projectNames = [...new Set(
+                        data.data
+                            .map(p => p.projectName)
+                            .filter(name => name && name.trim() !== 'Синергия 4.2.1')
                     )];
 
-                    console.log('Найдено проектов:', projectNames.length);
-                    console.log('Примеры проектов:', projectNames.slice(0, 3));
-
-                    // Отправка метрик для уникальных проектов
+                    // Отмечаем уникальные проекты и отправляем метрики
                     projectNames.forEach(name => {
                         uniqueProjects.add(1, { project: name });
+                        this.addMetric(influxdbConfig.metrics.unique_projects, {
+                            count: 1,
+                            project_name: name
+                        });
                     });
-                } else {
-                    console.error('Неверная структура ответа API:', responseBody);
+
+                    // Метрики для списка проектов
+                    this.addMetric(influxdbConfig.metrics.response_time, {
+                        value: duration,
+                        endpoint: 'reserves-limits'
+                    });
+
+                    this.addMetric(influxdbConfig.metrics.success_requests, {
+                        count: 1,
+                        endpoint: 'reserves-limits'
+                    });
+
+                    // Отправляем накопленные метрики
+                    this.flushMetrics();
+
+                    return projectNames;
                 }
-            } else {
-                console.error('Ошибка API:', response.status, response.body);
+            } catch (e) {
+                console.error('Ошибка обработки ответа:', e.message);
+                this.addMetric(influxdbConfig.metrics.failure_requests, {
+                    count: 1,
+                    endpoint: 'reserves-limits',
+                    error: e.message
+                });
             }
-        } catch (error) {
-            console.error('Ошибка при обработке ответа:', error.message);
-            console.error('Тело ответа:', response.body);
+        } else {
+            this.addMetric(influxdbConfig.metrics.failure_requests, {
+                count: 1,
+                endpoint: 'reserves-limits',
+                error: `Status ${response.status}`
+            });
         }
 
-        return projectNames;
+        // Отправляем метрики в случае ошибки
+        this.flushMetrics();
+        return [];
     }
 
-    // Получение данных по проекту
-    async getProjectData(projectName) {
-        console.log('Запрос данных для проекта:', projectName);
-        
+    // Получение фактических резервов по проекту
+    async getProjectReserves(projectName) {
+        const startTime = new Date();
         const response = await this.get(
-            `${this.endpoints.fact}?projectName=${encodeURIComponent(projectName)}`,
+            `${this.endpoint}/reserves-fact?projectName=${encodeURIComponent(projectName)}`,
             {
                 headers: { 'accept': 'application/json' },
                 tags: { project: projectName }
             }
         );
+        const duration = new Date() - startTime;
 
-        const duration = response.timings.duration;
+        // Обработка метрик
+        totalRequests.add(1);
+        this.addMetric(influxdbConfig.metrics.total_requests, {
+            count: 1,
+            project_name: projectName
+        });
+        
+        // Метрики времени ответа
         totalResponseTime.add(duration);
+        this.addMetric(influxdbConfig.metrics.response_time, {
+            value: duration,
+            endpoint: 'reserves-fact',
+            project_name: projectName
+        });
 
+        // Проверка успешности
         const isStatus200 = response.status === 200;
         let isJSONValid = false;
+        
         try {
-            JSON.parse(response.body);
+            this.parseResponse(response);
             isJSONValid = true;
         } catch (e) {
             isJSONValid = false;
-            console.error('Ошибка парсинга JSON для проекта', projectName, e.message);
         }
 
         if (isStatus200 && isJSONValid) {
             totalSuccessRequests.add(1);
-            console.log('Успешный запрос для проекта:', projectName);
+            this.addMetric(influxdbConfig.metrics.success_requests, {
+                count: 1,
+                endpoint: 'reserves-fact',
+                project_name: projectName
+            });
         } else {
             totalFailureRequests.add(1);
+            this.addMetric(influxdbConfig.metrics.failure_requests, {
+                count: 1,
+                endpoint: 'reserves-fact',
+                project_name: projectName,
+                error: response.error || 'Invalid JSON'
+            });
             console.error(`Ошибка ${response.status} для ${projectName}: ${response.error || 'Нет ответа'}`);
         }
 
+        // Отправляем накопленные метрики
+        this.flushMetrics();
+
         return response;
+    }
+
+    // Добавление метрики в очередь
+    addMetric(measurement, fields, tags = {}) {
+        this.metrics.push({
+            measurement,
+            fields,
+            tags: {
+                ...tags,
+                environment: this.environment
+            }
+        });
+    }
+
+    // Отправка накопленных метрик в InfluxDB
+    flushMetrics() {
+        if (this.metrics.length > 0) {
+            sendMetricsToInfluxDB(this.metrics);
+            this.metrics = [];
+        }
     }
 } 

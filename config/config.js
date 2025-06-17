@@ -1,38 +1,40 @@
 export const CONFIG = {
     // Настройки InfluxDB
     influxDB: {
-        url: 'http://ip:port',
-        token: '__INFLUXDB_TOKEN__',
+        url: 'http://158.160.147.11:30086/',
+        token: 'TktS_DpjT9vs-1bRfEMnoBTplZhkE0nP96V86OGS2VNBan-8xXQWuemrDCm6VXUke2DXLq1-LnOY96I4ISF88Q==',
         org: 'myorg',
         bucket: 'five',
     },
 
-    // Настройки API
-    api: {
-        baseUrl: 'http://10.11.183.212:16000',
-        endpoints: {
-            reservesLimits: '/v1/reserves-limits',
-            reservesFact: '/v1/reserves-fact'
-        }
-    },
-
-    // Настройки тестирования
+    // Общие настройки тестирования
     defaults: {
+        // Настройки нагрузки
         stages: [
-            { duration: '3m', target: 500 }
+            { duration: '3m', target: 500 },
+            //{ duration: '1m', target: 180 },
+            //{ duration: '1m', target: 100 },
         ],
-        thresholds: {
-            http_req_duration: ['p(95)<500'],
-            http_req_failed: ['rate<0.01']
-        }
     },
 
-    // Настройки окружения
+    // Настройки для различных окружений
     environments: {
         development: {
-            limit: 500,
-            appVersion: 'v1.2.3',
-            loadProfile: '2.500-u500'
-        }
-    }
+            baseUrl: 'http://10.11.183.212:16000',
+        },
+        staging: {
+            baseUrl: 'http://10.11.183.212:16000',
+        },
+        production: {
+            baseUrl: 'http://10.11.183.212:16000',
+        },
+    },
+
+    // Специфичные настройки для reserves API
+    reserves: {
+        excludeProjects: ['Синергия 4.2.1'],
+        defaultLimit: 500,
+        defaultOffset: 0,
+        timeout: '300s',
+    },
 }; 
