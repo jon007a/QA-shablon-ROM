@@ -2,9 +2,9 @@ export const CONFIG = {
     // Настройки InfluxDB
     influxDB: {
         url: 'http://158.160.147.11:30086',
-        token: process.env.K6_INFLUXDB_TOKEN,
-        org: process.env.K6_INFLUXDB_ORGANIZATION,
-        bucket: process.env.K6_INFLUXDB_BUCKET,
+        token: __ENV.K6_INFLUXDB_TOKEN,
+        org: __ENV.K6_INFLUXDB_ORGANIZATION,
+        bucket: __ENV.K6_INFLUXDB_BUCKET,
     },
 
     // Настройки API
@@ -18,8 +18,8 @@ export const CONFIG = {
 
     // Общие теги
     commonTags: {
-        version: process.env.APP_VERSION || 'v1.0',
-        load: process.env.LOAD_PROFILE || 'nagruzka'
+        version: __ENV.APP_VERSION || 'v1.0',
+        load: __ENV.LOAD_PROFILE || 'nagruzka'
     },
 
     // Настройки тестов по умолчанию
@@ -27,7 +27,7 @@ export const CONFIG = {
         stages: [
             { duration: '3m', target: 500 }
         ],
-        limit: process.env.LIMIT || 500
+        limit: __ENV.LIMIT || 500
     },
 
     // Настройки для различных окружений
