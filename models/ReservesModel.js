@@ -31,22 +31,35 @@ export class ReservesModel extends BaseModel {
 
         try {
             if (response.status === 200) {
-                const data = response.json();
-                if (data && data.data) {
+                const responseBody = response.json();
+                console.log('Получен ответ от API:', JSON.stringify(responseBody, null, 2));
+
+                if (responseBody && responseBody.data && Array.isArray(responseBody.data)) {
+                    // Извлекаем уникальные projectName
                     projectNames = [...new Set(
-                        data.data
-                            .map(p => p.projectName)
-                            .filter(name => name && name.trim() !== 'Синергия 4.2.1')
+                        responseBody.data
+                            .filter(item => item.projectName && 
+                                          item.projectName.trim() !== '' && 
+                                          item.projectName !== 'Синергия 4.2.1')
+                            .map(item => item.projectName)
                     )];
+
+                    console.log('Найдено проектов:', projectNames.length);
+                    console.log('Примеры проектов:', projectNames.slice(0, 3));
 
                     // Отправка метрик для уникальных проектов
                     projectNames.forEach(name => {
                         uniqueProjects.add(1, { project: name });
                     });
+                } else {
+                    console.error('Неверная структура ответа API:', responseBody);
                 }
+            } else {
+                console.error('Ошибка API:', response.status, response.body);
             }
         } catch (error) {
             console.error('Ошибка при обработке ответа:', error.message);
+            console.error('Тело ответа:', response.body);
         }
 
         return projectNames;
@@ -54,6 +67,8 @@ export class ReservesModel extends BaseModel {
 
     // Получение данных по проекту
     async getProjectData(projectName) {
+        console.log('Запрос данных для проекта:', projectName);
+        
         const response = await this.get(
             `${this.endpoints.fact}?projectName=${encodeURIComponent(projectName)}`,
             {
@@ -72,10 +87,12 @@ export class ReservesModel extends BaseModel {
             isJSONValid = true;
         } catch (e) {
             isJSONValid = false;
+            console.error('Ошибка парсинга JSON для проекта', projectName, e.message);
         }
 
         if (isStatus200 && isJSONValid) {
             totalSuccessRequests.add(1);
+            console.log('Успешный запрос для проекта:', projectName);
         } else {
             totalFailureRequests.add(1);
             console.error(`Ошибка ${response.status} для ${projectName}: ${response.error || 'Нет ответа'}`);
