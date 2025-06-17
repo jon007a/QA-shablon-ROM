@@ -2,39 +2,44 @@ export const CONFIG = {
     // Настройки InfluxDB
     influxDB: {
         url: 'http://158.160.147.11:30086',
-        token: 'TktS_DpjT9vs-1bRfEMnoBTplZhkE0nP96V86OGS2VNBan-8xXQWuemrDCm6VXUke2DXLq1-LnOY96I4ISF88Q==',
-        org: '0fcac95626900400',
-        bucket: 'five',
+        token: process.env.K6_INFLUXDB_TOKEN,
+        org: process.env.K6_INFLUXDB_ORGANIZATION,
+        bucket: process.env.K6_INFLUXDB_BUCKET,
     },
 
-    // Общие настройки тестирования
+    // Настройки API
+    api: {
+        baseUrl: 'http://10.11.183.212:16000',
+        endpoints: {
+            reservesLimits: '/v1/reserves-limits',
+            reservesFact: '/v1/reserves-fact'
+        }
+    },
+
+    // Общие теги
+    commonTags: {
+        version: process.env.APP_VERSION || 'v1.0',
+        load: process.env.LOAD_PROFILE || 'nagruzka'
+    },
+
+    // Настройки тестов по умолчанию
     defaults: {
-        // Настройки нагрузки
         stages: [
-            { duration: '3m', target: 500 },
-            //{ duration: '1m', target: 180 },
-            //{ duration: '1m', target: 100 },
+            { duration: '3m', target: 500 }
         ],
+        limit: process.env.LIMIT || 500
     },
 
     // Настройки для различных окружений
     environments: {
         development: {
-            baseUrl: 'http://10.11.183.212:16000',
+            baseUrl: 'http://localhost:3000',
         },
         staging: {
-            baseUrl: 'http://10.11.183.212:16000',
+            baseUrl: 'https://staging-api.example.com',
         },
         production: {
-            baseUrl: 'http://10.11.183.212:16000',
+            baseUrl: 'https://api.example.com',
         },
     },
-
-    // Специфичные настройки для reserves API
-    reserves: {
-        excludeProjects: ['Синергия 4.2.1'],
-        defaultLimit: 500,
-        defaultOffset: 0,
-        timeout: '300s',
-    },
-};
+}; 
