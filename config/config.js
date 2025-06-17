@@ -1,10 +1,10 @@
 export const CONFIG = {
     // Настройки InfluxDB
     influxDB: {
-        url: 'http://158.160.147.11:30086/',
-        token: 'TktS_DpjT9vs-1bRfEMnoBTplZhkE0nP96V86OGS2VNBan-8xXQWuemrDCm6VXUke2DXLq1-LnOY96I4ISF88Q==',
-        org: 'myorg',
-        bucket: 'five',
+        url: 'http://158.160.147.11:30086',
+        token: __ENV.INFLUXDB_TOKEN || 'TktS_DpjT9vs-1bRfEMnoBTplZhkE0nP96V86OGS2VNBan-8xXQWuemrDCm6VXUke2DXLq1-LnOY96I4ISF88Q==',
+        org: __ENV.INFLUXDB_ORG || 'myorg',
+        bucket: __ENV.INFLUXDB_BUCKET || 'five',
     },
 
     // Общие настройки тестирования
