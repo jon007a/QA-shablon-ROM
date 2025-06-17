@@ -19,18 +19,19 @@ export class ReservesModel extends BaseModel {
     // Получение списка проектов
     async getProjectsList(limit = 500, offset = 0) {
         const startTime = new Date();
-        const response = await this.get(
-            `${this.endpoint}/reserves-limits?limit=${limit}&offset=${offset}`,
-            {
-                headers: { 'accept': 'application/json' },
-                timeout: '300s'
-            }
-        );
-        const duration = new Date() - startTime;
+        let response;
+        try {
+            response = await this.get(
+                `${this.endpoint}/reserves-limits?limit=${limit}&offset=${offset}`,
+                {
+                    headers: { 'accept': 'application/json' },
+                    timeout: '300s'
+                }
+            );
+            const duration = new Date() - startTime;
 
-        // Обработка ответа
-        if (response.status === 200) {
-            try {
+            // Обработка ответа
+            if (response.status === 200) {
                 const data = this.parseResponse(response);
                 if (data?.data) {
                     // Фильтрация проектов
@@ -65,19 +66,19 @@ export class ReservesModel extends BaseModel {
 
                     return projectNames;
                 }
-            } catch (e) {
-                console.error('Ошибка обработки ответа:', e.message);
+            } else {
                 this.addMetric(influxdbConfig.metrics.failure_requests, {
                     count: 1,
                     endpoint: 'reserves-limits',
-                    error: e.message
+                    error: `Status ${response.status}`
                 });
             }
-        } else {
+        } catch (e) {
+            console.error('Ошибка запроса:', e.message);
             this.addMetric(influxdbConfig.metrics.failure_requests, {
                 count: 1,
                 endpoint: 'reserves-limits',
-                error: `Status ${response.status}`
+                error: e.message
             });
         }
 
@@ -89,57 +90,68 @@ export class ReservesModel extends BaseModel {
     // Получение фактических резервов по проекту
     async getProjectReserves(projectName) {
         const startTime = new Date();
-        const response = await this.get(
-            `${this.endpoint}/reserves-fact?projectName=${encodeURIComponent(projectName)}`,
-            {
-                headers: { 'accept': 'application/json' },
-                tags: { project: projectName }
-            }
-        );
-        const duration = new Date() - startTime;
-
-        // Обработка метрик
-        totalRequests.add(1);
-        this.addMetric(influxdbConfig.metrics.total_requests, {
-            count: 1,
-            project_name: projectName
-        });
-        
-        // Метрики времени ответа
-        totalResponseTime.add(duration);
-        this.addMetric(influxdbConfig.metrics.response_time, {
-            value: duration,
-            endpoint: 'reserves-fact',
-            project_name: projectName
-        });
-
-        // Проверка успешности
-        const isStatus200 = response.status === 200;
-        let isJSONValid = false;
-        
+        let response;
         try {
-            this.parseResponse(response);
-            isJSONValid = true;
-        } catch (e) {
-            isJSONValid = false;
-        }
+            response = await this.get(
+                `${this.endpoint}/reserves-fact?projectName=${encodeURIComponent(projectName)}`,
+                {
+                    headers: { 'accept': 'application/json' },
+                    tags: { project: projectName }
+                }
+            );
+            const duration = new Date() - startTime;
 
-        if (isStatus200 && isJSONValid) {
-            totalSuccessRequests.add(1);
-            this.addMetric(influxdbConfig.metrics.success_requests, {
+            // Обработка метрик
+            totalRequests.add(1);
+            this.addMetric(influxdbConfig.metrics.total_requests, {
                 count: 1,
+                project_name: projectName
+            });
+            
+            // Метрики времени ответа
+            totalResponseTime.add(duration);
+            this.addMetric(influxdbConfig.metrics.response_time, {
+                value: duration,
                 endpoint: 'reserves-fact',
                 project_name: projectName
             });
-        } else {
-            totalFailureRequests.add(1);
+
+            // Проверка успешности
+            const isStatus200 = response.status === 200;
+            let isJSONValid = false;
+            
+            try {
+                this.parseResponse(response);
+                isJSONValid = true;
+            } catch (e) {
+                isJSONValid = false;
+            }
+
+            if (isStatus200 && isJSONValid) {
+                totalSuccessRequests.add(1);
+                this.addMetric(influxdbConfig.metrics.success_requests, {
+                    count: 1,
+                    endpoint: 'reserves-fact',
+                    project_name: projectName
+                });
+            } else {
+                totalFailureRequests.add(1);
+                this.addMetric(influxdbConfig.metrics.failure_requests, {
+                    count: 1,
+                    endpoint: 'reserves-fact',
+                    project_name: projectName,
+                    error: response.error || 'Invalid JSON'
+                });
+                console.error(`Ошибка ${response.status} для ${projectName}: ${response.error || 'Нет ответа'}`);
+            }
+        } catch (e) {
+            console.error(`Ошибка запроса для ${projectName}:`, e.message);
             this.addMetric(influxdbConfig.metrics.failure_requests, {
                 count: 1,
                 endpoint: 'reserves-fact',
                 project_name: projectName,
-                error: response.error || 'Invalid JSON'
+                error: e.message
             });
-            console.error(`Ошибка ${response.status} для ${projectName}: ${response.error || 'Нет ответа'}`);
         }
 
         // Отправляем накопленные метрики
